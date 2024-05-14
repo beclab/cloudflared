@@ -51,22 +51,38 @@ func (o *httpService) RoundTrip(req *http.Request) (*http.Response, error) {
 		req.Host = o.hostHeader
 	}
 
-	if o.matchSNIToHost {
-		o.SetOriginServerName(req)
+	var err error
+	o.Lock()
+
+	transport, ok := o.transports[req.Host]
+	if !ok {
+		transport, err = newHTTPTransport(o, *o.cfg, o.logger)
+		if err != nil {
+			o.Unlock()
+			return nil, err
+		}
+
+		o.transports[req.Host] = transport
 	}
 
-	return o.transport.RoundTrip(req)
+	o.Unlock()
+
+	if o.matchSNIToHost {
+		o.SetOriginServerName(transport, req)
+	}
+
+	return transport.RoundTrip(req)
 }
 
-func (o *httpService) SetOriginServerName(req *http.Request) {
-	o.transport.DialTLSContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
-		conn, err := o.transport.DialContext(ctx, network, addr)
+func (o *httpService) SetOriginServerName(transport *http.Transport, req *http.Request) {
+	transport.DialTLSContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
+		conn, err := transport.DialContext(ctx, network, addr)
 		if err != nil {
 			return nil, err
 		}
 		return tls.Client(conn, &tls.Config{
-			RootCAs:            o.transport.TLSClientConfig.RootCAs,
-			InsecureSkipVerify: o.transport.TLSClientConfig.InsecureSkipVerify,
+			RootCAs:            transport.TLSClientConfig.RootCAs,
+			InsecureSkipVerify: transport.TLSClientConfig.InsecureSkipVerify,
 			ServerName:         req.Host,
 		}), nil
 	}

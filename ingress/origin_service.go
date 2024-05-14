@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/pkg/errors"
@@ -68,19 +69,28 @@ func (o unixSocketPath) MarshalJSON() ([]byte, error) {
 }
 
 type httpService struct {
+	sync.RWMutex
+
 	url            *url.URL
 	hostHeader     string
-	transport      *http.Transport
+	transports     map[string]*http.Transport
 	matchSNIToHost bool
+	logger         *zerolog.Logger
+	cfg            *OriginRequestConfig
 }
 
 func (o *httpService) start(log *zerolog.Logger, _ <-chan struct{}, cfg OriginRequestConfig) error {
-	transport, err := newHTTPTransport(o, cfg, log)
-	if err != nil {
-		return err
-	}
+	// postpone creating transport
+	// transport, err := newHTTPTransport(o, cfg, log)
+	// if err != nil {
+	// 	return err
+	// }
+	o.logger = log
+	o.cfg = &cfg
+	o.transports = make(map[string]*http.Transport)
+
 	o.hostHeader = cfg.HTTPHostHeader
-	o.transport = transport
+	// o.transport = transport
 	o.matchSNIToHost = cfg.MatchSNIToHost
 	return nil
 }
