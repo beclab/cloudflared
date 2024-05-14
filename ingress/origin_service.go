@@ -99,7 +99,9 @@ func (o *httpService) String() string {
 	return o.url.String()
 }
 
-func (o httpService) MarshalJSON() ([]byte, error) {
+func (o *httpService) MarshalJSON() ([]byte, error) {
+	o.RLock()
+	defer o.RUnlock()
 	return json.Marshal(o.String())
 }
 
