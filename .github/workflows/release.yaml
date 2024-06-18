@@ -25,7 +25,7 @@ jobs:
         id: get-latest-tag
         with:
           fallback: latest
-      - name: Build and push
+      - name: Build and push ( amd64 )
         uses: docker/build-push-action@v2
         with:
           context: .
@@ -33,3 +33,11 @@ jobs:
           push: true
           tags: beclab/cloudflared:${{ steps.get-latest-tag.outputs.tag }}
                     
+      - name: Build and push ( arm64 )
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          file: Dockerfile.arm64
+          push: true
+          tags: beclab/cloudflared:${{ steps.get-latest-tag.outputs.tag }}
+  
